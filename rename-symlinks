@@ -1,0 +1,177 @@
+#!/usr/bin/perl
+use v5.24;
+use Getopt::Lucid qw( :all );
+use FindBin; use lib $FindBin::RealBin;
+use ansi;
+if (!-t *STDOUT) { uncolor(); } # Wipe color sequences
+
+my @specs = (
+	Counter("verbose|v"),
+	List("dir|d")->doc("candidate dirs (may be used multiple times)"),
+	List("cmd|c")->doc("Command (like a regex or something)"),
+	Switch("forceexisting|f")->doc("Force replacement of valid (existing) targets too (default skips them)"),
+	Switch("quiet|q")->doc("Quiet normal output"),
+	Switch("help|h")
+);
+my $opt = Getopt::Lucid->getopt( \@specs )->validate;
+my @dirs = $opt->get_dir;
+if ($opt->get_help) {
+	print $opt->usage();
+	say <<~'EOT';
+		
+		Examples (order of files/options doesn't matter):
+			rename-symlinks * -c 's/old-target-substring/new-string/' -v -v
+			rename-symlinks -c 'lc' *  # For when you lowercased some target paths
+		EOT
+	exit;
+}
+my $verb = $opt->get_verbose;
+my $quiet = $opt->get_quiet;
+if (!$opt->get_cmd) {
+	say STDERR "We require at least one -c / --cmd or we can't do anything";
+	exit;
+}
+print map { "Target dir: $_\n" } @dirs;
+my @files = @ARGV;
+my $stat_files=0;
+my $stat_notneeded=0;
+my $stat_notsymlinks=0;
+my $stat_relinked=0;
+my $stat_notfound=0;
+for my $f (@files) {
+	$stat_files++;
+	if (!-l $f) {             # Not a link
+		$stat_notsymlinks++;
+		next;
+	}
+	my $otarg = readlink $f;  # Original target link
+	# say STDERR "File $f";
+	# say STDERR "Orig targ: $otarg";
+	my $targexists = -f $otarg;
+
+	if ($targexists) {
+		if (!$opt->get_forceexisting) {
+			say "  Target EXISTS. Skipping" if $verb > 1;
+		} else {
+			say "File: $f" if $verb > 1;
+			say " Target: $otarg" if $verb > 1;
+			say "  Target EXISTS. Forcing" if $verb > 1;
+		}
+	} else {
+		say "File: $f" if $verb > 1;
+		say " Target: $otarg" if $verb > 1;
+		say "  Target MISSING. Procesing..." if $verb > 1;
+	}
+	if (!$targexists || $opt->get_forceexisting) {
+		procfile(fn=>$f, target=>$otarg);
+		$stat_relinked++;
+	} else {
+		$stat_notneeded++;
+	}
+}
+print_stats();
+exit;
+
+sub print_stats {
+	say "Totals:";
+	say "                    Files: $stat_files";
+	say "     Not needed (link ok): $stat_notneeded";
+	say "  Not needed (not a link): $stat_notsymlinks";
+	say "           Link not found: $stat_notfound";
+	say "                Re-linked: $stat_relinked";
+}
+
+sub procfile {
+	my %opts = @_;
+	my $fn = $opts{fn} // die "procfile() needs fn";
+	my $target = $opts{target} // die "procfile() needs target";
+	my $i=0;
+	my $targdup = $target;
+	my $targpre = $target;
+	my $found=0;
+	for my $code ($opt->get_cmd) {
+		$targdup = handle_renaming($target, $code);
+		if ($targdup ne $target) {
+			say "    Was [$i] <- ${bcya}$target$rst" if $verb > 1;
+			say "     Is [$i] -> ${bcya}$targdup$rst" if $verb > 1;
+			if (-f $targdup) {
+				say "      Target ${yel}VALID$rst: Re-linking$rst" if $verb > 1;
+				if (!$verb && !$quiet) {
+					say "$fn";
+					say "  Old -> $target";
+					say "  New -> $targdup";
+				}
+				relink(fn=>$fn, otarget=>$target, ntarget=>$targdup);
+				$found++;
+				last;
+			} else {
+				say "      ${red}Target invalid. Trying next code$rst" if $verb > 1;
+			}
+		}
+		$i++;
+	}
+	if ($found) { $stat_relinked++; }
+	else {
+		$stat_notfound++;
+		if (!$quiet) {
+			say "${bred}No candidate found:$rst";
+			say "  File: $fn";
+			say "  Current target: $target";
+		}
+	}
+}
+sub relink {
+	my %opts = @_;
+	my $fn = $opts{fn} // die "relink() needs fn=>";
+	my $otarget = $opts{otarget} // die "relink() needs otarget=>";
+	my $ntarget = $opts{ntarget} // die "relink() needs ntarget=>";
+	if ($verb > 1) {
+		say "Relinking $fn";
+		say "  Old: $otarget";
+		say "  New: $ntarget";
+	}
+	unlink $fn || die "Couldn't unlink original file {$fn}: $!";
+	if (!symlink $ntarget, $fn) {
+		die "Error symlinking: $!\n" .
+			"  File: $fn\n" .
+			"  Old Target: $otarget\n" .
+			"  New Target: $ntarget";
+	}
+}
+
+sub handle_renaming {
+	my $ln = shift;
+	my $code = shift;
+	if ( my $eval = eval <<CODE ) 
+sub {
+#line 1
+$code
+#line
+}
+CODE
+	{	
+	    $code = $eval;
+	} else {
+	    my $error = $@;
+	    $error =~ s/\(eval\s+\d+\)/\(user-supplied code\)/g;
+	    $error =~ s/\s+line\s+1\b//g unless $code =~ /\n/;
+	    $error =~ s/\"[^#"]*\#line\s+1\n/"/;
+	    $error =~ s/\n\#line\n[^#"]*\"/"/;
+	    $error =~ s/\s*\z/\n/;
+	    die $error;
+    }
+    $_ = $ln;
+    $code->();
+    return $_;
+}
+
+
+# while read badf; do
+# 	otarg=$(readlink "$badf");
+# 	otargp="${otarg##*/}";
+# 	echo "Bad: $badf";
+# 	echo " OLn: $otarg";
+# 	echo "  Olnp: $otargp";
+# 	candis=("${candis[@]}" "$otargp");
+# done < <(find . -xtype l)
+

@@ -1,0 +1,27 @@
+# Rename symlinks
+
+Re-writes symlinks based on provided perl command(s)
+
+# Usage:
+
+```perl
+Usage: rename-symlinks [-dfhqrv] [long options] [arguments]
+	-d, --dir                candidate dirs (may be used multiple times)
+	-f, --forceexisting      Force replacement of valid (existing)
+	                         targets too (default skips them)
+	-h, --help               
+	-q, --quiet              Quiet normal output
+	-r, --re                 regex (multiple appearances ok)
+	-v, --verbose 
+```
+
+# Examples
+
+1. `rename-symlinks * 's/old-dir/new-dir'`
+1. `rename-symlinks -h # I want help`
+
+## Requires
+
+* Perl
+* Perl module: Getopt::Lucid
+	* (Debian: libgetopt-lucid-perl, or `cpanm Getopt::Lucid`
