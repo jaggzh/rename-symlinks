@@ -4,15 +4,22 @@ Re-writes symlinks based on provided perl regex or command(s)
 
 # Usage:
 
-```perl
-Usage: rename-symlinks [-dfhqrv] [long options] [arguments]
-	-d, --dir                candidate dirs (may be used multiple times)
-	-f, --forceexisting      Force replacement of valid (existing)
-	                         targets too (default skips them)
-	-h, --help               
-	-q, --quiet              Quiet normal output
-	-r, --re                 regex (multiple appearances ok)
-	-v, --verbose 
+```
+Usage: rename-symlinks [-cdfhTqv] [long options] [arguments]
+    -c, --cmd                Command (like a regex or something)
+    -d, --dir                candidate dirs (may be used multiple times)
+    -f, --force-existing     Force replacement with valid (existing)
+                             targets too (default skips them)
+    -h, --help               
+    -T, --no-invalid-targets Do not link when target is an invalid
+                             symlink chain itself (default links if that
+                             symlink exists, even if it's invalid)
+    -q, --quiet              Quiet normal output
+    -v, --verbose            
+
+Examples (order of files/options doesn't matter):
+    rename-symlinks * -c 's/old-target-substring/new-string/' -v -v
+    rename-symlinks -c 'lc' *  # For when you lowercased some target paths
 ```
 
 # Examples

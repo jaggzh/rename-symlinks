@@ -9,7 +9,8 @@ my @specs = (
 	Counter("verbose|v"),
 	List("dir|d")->doc("candidate dirs (may be used multiple times)"),
 	List("cmd|c")->doc("Command (like a regex or something)"),
-	Switch("forceexisting|f")->doc("Force replacement of valid (existing) targets too (default skips them)"),
+	Switch("force-existing|f")->doc("Force replacement with valid (existing) targets too (default skips them)"),
+	Switch("no-invalid-targets|T")->doc("Do not link when target is an invalid symlink chain itself (default links if that symlink exists, even if it's invalid)"),
 	Switch("quiet|q")->doc("Quiet normal output"),
 	Switch("help|h")
 );
@@ -47,10 +48,15 @@ for my $f (@files) {
 	my $otarg = readlink $f;  # Original target link
 	# say STDERR "File $f";
 	# say STDERR "Orig targ: $otarg";
-	my $targexists = -e $otarg;
+	my $targexists;
+	if ($opt->get_no_invalid_targets) {  # -e follows symlink chains
+		$targexists = -e $otarg;
+	} else {                             # lstat accepts invalid symlink
+		$targexists = lstat $otarg;
+	}
 
 	if ($targexists) {
-		if (!$opt->get_forceexisting) {
+		if (!$opt->get_force_existing) {
 			say "  Target EXISTS. Skipping" if $verb > 1;
 		} else {
 			say "File: $f" if $verb > 1;
@@ -62,7 +68,7 @@ for my $f (@files) {
 		say " Target: $otarg" if $verb > 1;
 		say "  Target MISSING. Procesing..." if $verb > 1;
 	}
-	if (!$targexists || $opt->get_forceexisting) {
+	if (!$targexists || $opt->get_force_existing) {
 		procfile(fn=>$f, target=>$otarg);
 		$stat_relinked++;
 	} else {
