@@ -1,6 +1,6 @@
 # Rename symlinks
 
-Re-writes symlinks based on provided perl command(s)
+Re-writes symlinks based on provided perl regex or command(s)
 
 # Usage:
 
