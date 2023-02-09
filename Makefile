@@ -7,6 +7,6 @@ vi:
 	vim \
 		Makefile \
 		rename-symlinks \
-		README \
+		README.md \
 		ansi.pm \
 		LICENSE

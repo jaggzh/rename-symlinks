@@ -47,7 +47,7 @@ for my $f (@files) {
 	my $otarg = readlink $f;  # Original target link
 	# say STDERR "File $f";
 	# say STDERR "Orig targ: $otarg";
-	my $targexists = -f $otarg;
+	my $targexists = -e $otarg;
 
 	if ($targexists) {
 		if (!$opt->get_forceexisting) {
