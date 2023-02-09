@@ -25,3 +25,10 @@ Usage: rename-symlinks [-dfhqrv] [long options] [arguments]
 * Perl
 * Perl module: Getopt::Lucid
 	* (Debian: libgetopt-lucid-perl, or `cpanm Getopt::Lucid`
+
+## Installation (maybe)
+
+1. Clone the repo somewhere:
+	1. `git clone https://github.com/jaggzh/rename-symlinks.git`
+1. I then symlink rename-symlinks into my ~/bin/ dir:
+	1. `cd ~/bin && ln -s /path/to/rename-symlinks/rename-symlinks`
